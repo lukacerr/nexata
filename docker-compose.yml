@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nexata
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./volumes/db:/var/lib/postgresql/data
+
+  cache:
+    image: valkey/valkey:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./volumes/cache:/data
+
+  # api:
+  #   build:
+  #     context: ./api
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@postgresql:5432/nexata
+  #     REDIS_URL: redis://valkey:6379
+  #   depends_on:
+  #     - db
+  #     - cache
