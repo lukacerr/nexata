@@ -3,24 +3,24 @@ import { lowerIndex } from '@api/utils/sql';
 import {
 	boolean,
 	pgTable,
-	primaryKey,
-	serial,
+	uniqueIndex,
+	uuid,
 	varchar,
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable(
 	'user',
 	{
-		id: serial().primaryKey(),
-		email: varchar({ length: 320 }).notNull(),
+		id: uuid().primaryKey().defaultRandom(),
 		slug: varchar({ length: 32 })
 			.notNull()
 			.references(() => tenant.slug, { onDelete: 'cascade' }),
+		email: varchar({ length: 320 }).notNull(),
 		displayName: varchar({ length: 64 }),
 		isAdmin: boolean().notNull().default(false),
 	},
 	(table) => [
-		primaryKey({ columns: [table.email, table.slug] }),
 		lowerIndex(table.email),
+		uniqueIndex('email_slug').on(table.email, table.slug),
 	],
 );

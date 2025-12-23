@@ -13,7 +13,7 @@ type GmailInput = Static<typeof GmailInput>;
 export const gmailTool = tool({
 	description: 'Gmail tool to return amount of references and files found',
 	inputSchema: jsonSchema<GmailInput>(GmailInput),
-	execute: async (req) => {
+	execute: async (_req) => {
 		return { references: 3, files: 2 };
 	},
 });

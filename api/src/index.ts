@@ -1,27 +1,75 @@
-import { cache, db } from '@api/data';
-import { IS_PRODUCTION } from '@api/env';
+import { adminRouter } from '@api/admin';
+import { authRouter } from '@api/auth';
+import { backofficeRouter } from '@api/backoffice';
+import { chatRouter } from '@api/chat';
+import { credentialRouter } from '@api/credential';
+import { cache, db, IS_PRODUCTION } from '@api/env';
 import cors from '@elysiajs/cors';
-import openapi from '@elysiajs/openapi';
-import { opentelemetry } from '@elysiajs/opentelemetry';
+import openapi, { fromTypes } from '@elysiajs/openapi';
 import serverTiming from '@elysiajs/server-timing';
 import { Elysia } from 'elysia';
 import { helmet } from 'elysia-helmet';
-import { httpExceptionPlugin } from 'elysia-http-exception';
-import { authRouter } from './auth';
+import { logger } from 'elysia-logger';
+import { sentry } from 'elysiajs-sentry';
 
 const app = new Elysia({ prefix: '/api' })
-	.use(!IS_PRODUCTION && openapi({ path: '/docs' }))
-	.use(IS_PRODUCTION && opentelemetry())
+	.use(
+		IS_PRODUCTION &&
+			sentry({
+				environment: 'production',
+				enableLogs: true,
+			}),
+	)
+	.use(
+		!IS_PRODUCTION &&
+			openapi({
+				path: '/docs',
+				references: fromTypes(),
+				scalar: {
+					defaultOpenAllTags: true,
+					expandAllModelSections: true,
+					theme: 'elysiajs',
+					expandAllResponses: true,
+					hideClientButton: true,
+					hideDarkModeToggle: true,
+					persistAuth: true,
+				},
+				documentation: {
+					info: {
+						title: 'Nexata',
+						version: '1.0.0',
+						description: "Nexata's main API",
+						contact: {
+							name: 'Nexata',
+							url: 'https://nexata.app',
+							email: 'support@nexata.app',
+						},
+						license: {
+							name: 'Attribution-NonCommercial-NoDerivatives 4.0 International',
+							url: 'https://creativecommons.org/licenses/by-nc-nd/4.0',
+						},
+					},
+				},
+			}),
+	)
 	.use(helmet())
 	.use(serverTiming())
 	.use(cors())
-	.use(httpExceptionPlugin())
-	.get('/', async () => ({
-		timestamp: new Date().toISOString(),
-		dbResponse: await db.execute('SELECT true'),
-		cacheResponse: await cache.exec(['PING']),
-	}))
+	.use(logger({ level: IS_PRODUCTION ? 'warn' : 'debug', logDetails: true }))
+	.use(backofficeRouter)
 	.use(authRouter)
+	.use(adminRouter)
+	.use(credentialRouter)
+	.use(chatRouter)
+	.get(
+		'/',
+		async () => ({
+			timestamp: new Date().toISOString(),
+			dbResponse: JSON.stringify(await db.execute('SELECT true')),
+			cacheResponse: (await cache.exec(['PING'])) as 'PONG',
+		}),
+		{ detail: { summary: 'Health check' } },
+	)
 	.listen(process.env.PORT ?? 3000);
 
 export type App = typeof app;

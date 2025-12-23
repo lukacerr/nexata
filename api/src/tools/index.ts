@@ -1,1 +1,1 @@
-export * from './gmail';
+export * from '@api/tools/gmail';
