@@ -4,7 +4,8 @@
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",
 		"mig": "bunx drizzle-kit generate",
-		"mig:push": "bunx drizzle-kit migrate"
+		"mig:push": "bunx drizzle-kit migrate",
+		"check": "biome check --fix --unsafe --verbose"
 	},
 	"dependencies": {
 		"@ai-sdk/deepinfra": "^1.0.30",
@@ -23,6 +24,7 @@
 		"dayjs": "^1.11.19",
 		"drizzle-orm": "^0.45.1",
 		"drizzle-typebox": "^0.3.3",
+		"dropbox": "^10.34.0",
 		"elysia": "^1.4.19",
 		"elysia-helmet": "^3.0.0",
 		"elysia-logger": "^0.5.2",

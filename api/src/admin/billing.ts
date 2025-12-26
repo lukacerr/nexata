@@ -6,7 +6,7 @@ export const billingRouter = new Elysia({ prefix: '/billing' })
 	.get('/messages', async ({ activeUser }) => {}, {
 		detail: { summary: 'Read messages consumption', tags: ['TODO'] },
 	})
-	.get('/embeddings', async ({ activeUser }) => {}, {
+	.get('/embeds', async ({ activeUser }) => {}, {
 		detail: { summary: 'Read embeddings consumption', tags: ['TODO'] },
 	})
 	.get('/storage', async ({ activeUser }) => {}, {

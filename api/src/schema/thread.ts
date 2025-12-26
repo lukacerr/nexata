@@ -1,5 +1,4 @@
 import { user } from '@api/schema';
-import { lowerIndex } from '@api/utils/sql';
 import { desc } from 'drizzle-orm';
 import { index, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
@@ -13,8 +12,5 @@ export const thread = pgTable(
 		title: varchar({ length: 64 }),
 		createdAt: timestamp().notNull().defaultNow(),
 	},
-	(table) => [
-		lowerIndex(table.title),
-		index('thread_created_at_desc').on(desc(table.createdAt)),
-	],
+	(table) => [index('thread_created_at_desc').on(desc(table.createdAt))],
 );

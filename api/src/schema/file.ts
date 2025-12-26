@@ -1,5 +1,6 @@
 import { credential, thread, user } from '@api/schema';
 import {
+	boolean,
 	jsonb,
 	pgEnum,
 	pgTable,
@@ -29,6 +30,7 @@ export const file = pgTable('file', {
 	threadId: uuid().references(() => thread.id),
 	externalId: varchar({ length: 256 }),
 	credentialId: uuid().references(() => credential.id),
+	autoSync: boolean().notNull().default(true),
 	url: varchar(),
 	name: varchar({ length: 96 }).notNull(),
 	extension: varchar({ length: 8 }),

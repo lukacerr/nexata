@@ -1,5 +1,6 @@
 import { db } from '@api/env';
 import { tenant, user } from '@api/schema';
+import { tObject } from '@api/utils/type';
 import { eq } from 'drizzle-orm';
 import { createInsertSchema, createUpdateSchema } from 'drizzle-typebox';
 import Elysia, { t } from 'elysia';
@@ -42,7 +43,7 @@ export const tenantRouter = new Elysia({ prefix: '/tenant' })
 		{
 			detail: { summary: 'Update tenant by slug' },
 			body: t.Omit(updateTenant, ['createdAt']),
-			params: t.Object({ slug: t.String() }),
+			params: tObject({ slug: t.String() }),
 		},
 	)
 	.delete(
@@ -54,6 +55,6 @@ export const tenantRouter = new Elysia({ prefix: '/tenant' })
 				.returning({ slug: tenant.slug }),
 		{
 			detail: { summary: 'Delete tenant by slug' },
-			params: t.Object({ slug: t.String() }),
+			params: tObject({ slug: t.String() }),
 		},
 	);

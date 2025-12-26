@@ -1,4 +1,4 @@
-import { cache, db, IS_PRODUCTION, NEXATA_SECRET } from '@api/env';
+import { cache, db } from '@api/env';
 import {
 	credential,
 	type OauthProvider,
@@ -7,47 +7,43 @@ import {
 	scopesPerProvider,
 	user,
 } from '@api/schema';
+import { removeCachedCredentials } from '@api/utils/credential';
+import { requireEnv } from '@api/utils/env';
 import { lowerEq } from '@api/utils/sql';
-import jwt from '@elysiajs/jwt';
+import { Nullish, tObject } from '@api/utils/type';
 import { and, eq } from 'drizzle-orm';
-import Elysia, { redirect, type Static, t } from 'elysia';
+import { redirect, type Static, t } from 'elysia';
 import { HttpError } from 'elysia-logger';
 import { decodeIdToken, type OAuth2Tokens } from 'elysia-oauth2';
 
-export const jwtPayload = t.Object({
-	id: t.String({ format: 'uuid' }),
-	email: t.String(),
-	slug: t.String(),
-	isAdmin: t.Boolean(),
-});
+export type Oauth2Credentials = [
+	clientId: string,
+	clientSecret: string,
+	redirectURI: string,
+];
 
-export const jwtPlugin = new Elysia()
-	.use(
-		jwt({
-			name: 'jwt',
-			exp: IS_PRODUCTION ? '12h' : '1y',
-			secret: NEXATA_SECRET,
-			schema: jwtPayload,
-		}),
-	)
-	.use(
-		jwt({
-			name: 'refreshJwt',
-			exp: '30d',
-			secret: NEXATA_SECRET,
-			schema: jwtPayload,
-		}),
-	);
+export const getOauthCallback = (key: string) =>
+	`${requireEnv('DEPLOYMENT_URL')}/auth/${key}/callback`;
 
 export const oauthExtendedState = (provider?: OauthProvider) =>
-	t.Object({
-		tenant: t.String({ minLength: 2, pattern: '^[a-z0-9]{2,16}$' }),
-		scope: t.Optional(
+	tObject({
+		tenant: t.String({
+			minLength: 2,
+			pattern: '^[a-z0-9]{2,16}$',
+			description: 'Tenant slug',
+		}),
+		scope: Nullish(
 			provider
 				? t.Union(scopesPerProvider[provider].map((scope) => t.Literal(scope)))
 				: t.Enum(OauthScope),
+			{
+				description:
+					'For simple login, do not provide a scope. For credentials and permissions, use the desired `scope` from the available list.',
+			},
 		),
-		redirect: t.Optional(t.String({ format: 'uri' })),
+		redirect: Nullish(t.String({ format: 'uri' }), {
+			description: 'URL to redirect user after successful authentication.',
+		}),
 	});
 
 export const plainOauthExtendedState = oauthExtendedState();
@@ -76,11 +72,12 @@ export async function authorizeOauthCallback(
 	refreshJwtSign: (signValue: any) => Promise<string>,
 	metadataFunc: (
 		decodedIdToken: object,
-		callbackData: object,
+		callbackData?: object,
 	) => Promise<{
 		email: string;
 		refreshTokenExpiresAt?: Date;
 		name?: string;
+		pfpUrl?: string;
 	}>,
 ) {
 	const q = await cache.getdel<OauthExtendedState>(query.state);
@@ -97,7 +94,10 @@ export async function authorizeOauthCallback(
 		throw HttpError.Conflict('NO_REFRESH_TOKEN');
 
 	const metadata = await metadataFunc(
-		decodeIdToken(tokens.idToken()),
+		await Promise.resolve()
+			.then(() => tokens.idToken())
+			.then(decodeIdToken)
+			.catch(() => ({})),
 		tokens.data,
 	);
 
@@ -118,10 +118,10 @@ export async function authorizeOauthCallback(
 
 	if (!u?.id) throw HttpError.Forbidden('USER_NOT_FOUND');
 
-	if (!u.displayName && metadata.name)
+	if ((!u.displayName && metadata.name) || (!u.pfpUrl && metadata.pfpUrl))
 		await db
 			.update(user)
-			.set({ displayName: metadata.name })
+			.set({ displayName: metadata.name, pfpUrl: metadata.pfpUrl })
 			.where(eq(user.id, u.id));
 
 	const url = q.redirect && new URL(q.redirect);
@@ -148,18 +148,21 @@ export async function authorizeOauthCallback(
 		refreshTokenExpiresAt: metadata.refreshTokenExpiresAt!,
 	};
 
-	await db
-		.insert(credential)
-		.values({
-			userId: u.id,
-			provider: provider,
-			scope: [q.scope],
-			...set,
-		})
-		.onConflictDoUpdate({
-			set,
-			target: [credential.userId, credential.provider, credential.scope],
-		});
+	await Promise.all([
+		removeCachedCredentials(u.slug),
+		db
+			.insert(credential)
+			.values({
+				userId: u.id,
+				provider: provider,
+				scope: [q.scope],
+				...set,
+			})
+			.onConflictDoUpdate({
+				set,
+				target: [credential.userId, credential.provider, credential.scope],
+			}),
+	]);
 
 	return url ? redirect(url.href) : true;
 }

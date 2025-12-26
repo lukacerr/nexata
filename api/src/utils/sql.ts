@@ -1,6 +1,11 @@
 import type { Column, GetColumnData, SQL } from 'drizzle-orm';
 import { eq, sql } from 'drizzle-orm';
-import { type AnyPgColumn, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+	type AnyPgColumn,
+	type AnyPgSelect,
+	index,
+	uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export type TSQLObject<T = unknown> = Column | SQL<T> | SQL.Aliased<T>;
 
@@ -82,4 +87,10 @@ export function caseWhenNull<T>(col: Column, query: TSQLObject<T> | T) {
 	return sql<
 		T extends TSQLObject ? InferSQLType<T> : T | null
 	>`case when ${col} is not null then ${query} else null end`;
+}
+
+export function sq<T extends AnyPgSelect>(query: T) {
+	return (query.shouldOmitSQLParens ? !query.shouldOmitSQLParens() : false)
+		? query.getSQL()
+		: sql<T>`(${query})`;
 }

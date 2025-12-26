@@ -1,11 +1,13 @@
 import {
 	authorizeOauthCallback,
 	createOauthRedirect,
-	jwtPlugin,
+	getOauthCallback,
+	type Oauth2Credentials,
 	oauthExtendedState,
 } from '@api/auth/lib';
-import { getOauthCallback, type Oauth2Credentials, warnEnv } from '@api/env';
 import { OauthProvider, realOauthScopes } from '@api/schema';
+import { jwtPlugin } from '@api/utils/auth';
+import { warnEnv } from '@api/utils/env';
 import Elysia from 'elysia';
 import { HttpError } from 'elysia-logger';
 import { oauth2 } from 'elysia-oauth2';
@@ -55,7 +57,7 @@ export const googleRouter = new Elysia({ prefix: `/google` })
 				jwt.sign,
 				refreshJwt.sign,
 				async (
-					idToken?: { email?: string; name?: string },
+					idToken: { email?: string; name?: string; picture?: string },
 					data?: { refresh_token_expires_in?: number },
 				) => {
 					if (!idToken?.email)
@@ -67,6 +69,7 @@ export const googleRouter = new Elysia({ prefix: `/google` })
 							? new Date(Date.now() + data.refresh_token_expires_in * 1000)
 							: undefined,
 						name: idToken?.name,
+						pfpUrl: idToken?.picture,
 					};
 				},
 			),

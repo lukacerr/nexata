@@ -1,7 +1,9 @@
+import { dropboxRouter } from '@api/auth/dropbox';
 import { googleRouter } from '@api/auth/google';
-import { jwtPlugin } from '@api/auth/lib';
 import { db } from '@api/env';
 import { user } from '@api/schema';
+import { jwtPlugin } from '@api/utils/auth';
+import { tObject } from '@api/utils/type';
 import { eq } from 'drizzle-orm';
 import { Elysia, t } from 'elysia';
 import { HttpError } from 'elysia-logger';
@@ -12,7 +14,7 @@ export const authPlugin =
 		app
 			.use(jwtPlugin)
 			.guard({
-				headers: t.Object({
+				headers: tObject({
 					// biome-ignore lint/suspicious/noTemplateCurlyInString: Bearer check
 					authorization: t.TemplateLiteral('Bearer ${string}'),
 				}),
@@ -25,8 +27,12 @@ export const authPlugin =
 				return { activeUser: payload };
 			});
 
-export const authRouter = new Elysia({ prefix: '/auth', tags: ['Auth'] })
+export const authRouter = new Elysia({
+	prefix: '/auth',
+	tags: ['Auth'],
+})
 	.use(googleRouter)
+	.use(dropboxRouter)
 	.use(jwtPlugin)
 	.post(
 		'/refresh-token',
@@ -35,18 +41,10 @@ export const authRouter = new Elysia({ prefix: '/auth', tags: ['Auth'] })
 			if (!payload) throw HttpError.Unauthorized();
 
 			const u = (
-				await db
-					.select({
-						id: user.id,
-						email: user.email,
-						slug: user.slug,
-						isAdmin: user.isAdmin,
-					})
-					.from(user)
-					.where(eq(user.id, payload.id))
+				await db.select().from(user).where(eq(user.id, payload.id))
 			).at(0);
 
-			if (!u) throw HttpError.Forbidden();
+			if (!u) throw HttpError.Forbidden('EXPIRED_TOKEN');
 
 			const [accessToken, refreshToken] = await Promise.all([
 				jwt.sign(u),
@@ -57,6 +55,6 @@ export const authRouter = new Elysia({ prefix: '/auth', tags: ['Auth'] })
 		},
 		{
 			detail: { summary: 'Refresh token' },
-			body: t.Object({ token: t.String() }),
+			body: tObject({ token: t.String() }),
 		},
 	);

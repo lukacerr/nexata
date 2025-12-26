@@ -17,10 +17,11 @@ export const user = pgTable(
 			.references(() => tenant.slug, { onDelete: 'cascade' }),
 		email: varchar({ length: 320 }).notNull(),
 		displayName: varchar({ length: 64 }),
+		pfpUrl: varchar(),
 		isAdmin: boolean().notNull().default(false),
 	},
 	(table) => [
-		lowerIndex(table.email),
+		lowerIndex(table.email, false),
 		uniqueIndex('email_slug').on(table.email, table.slug),
 	],
 );

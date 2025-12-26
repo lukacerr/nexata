@@ -1,29 +1,30 @@
 import { cache, db } from '@api/env';
-import { type MessageRole, message, thread } from '@api/schema';
+import { message, thread, user } from '@api/schema';
 import type { ModelMessage } from 'ai';
-import { and, asc, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, exists, lt } from 'drizzle-orm';
 import { HttpError } from 'elysia-logger';
 
 export type getThreadMessagesOptions = {
 	content: 'partial' | 'full';
+	slug: string;
 	limit?: number;
 	userId?: string;
-	cursor?: Date;
+	cursor?: Date | null;
 	avoidCaching?: true;
 };
 
-type FullMessage = {
-	id: string;
-	role: MessageRole;
-	content: unknown;
-	extraReason: boolean;
-	createdAt: Date;
-};
+export type PartialMessage = ModelMessage & { id: string };
+
+export type FullMessage = ModelMessage &
+	PartialMessage & {
+		extraReason: boolean;
+		createdAt: Date;
+	};
 
 export async function getThreadMessages(
 	threadId: string,
 	op: getThreadMessagesOptions & { content: 'partial' },
-): Promise<ModelMessage[]>;
+): Promise<PartialMessage[]>;
 
 export async function getThreadMessages(
 	threadId: string,
@@ -35,14 +36,14 @@ export async function getThreadMessages(
 	op: getThreadMessagesOptions,
 ) {
 	if (op.content === 'partial') {
-		const cached = await cache.get<ModelMessage[]>(threadId);
+		const cached = await cache.get<PartialMessage[]>(threadId);
 		if (cached) return cached;
 	}
 
 	const noncached = await db
 		.select(
 			op.content === 'partial'
-				? { role: message.role, content: message.content }
+				? { id: message.id, role: message.role, content: message.content }
 				: {
 						id: message.id,
 						role: message.role,
@@ -56,8 +57,14 @@ export async function getThreadMessages(
 		.where(
 			and(
 				eq(message.threadId, threadId),
+				exists(
+					db
+						.select({ slug: user.slug })
+						.from(user)
+						.where(and(eq(user.id, thread.userId), eq(user.slug, op.slug))),
+				),
 				op.userId ? eq(thread.userId, op.userId) : undefined,
-				op.cursor && lt(message.createdAt, op.cursor),
+				op.cursor ? lt(message.createdAt, op.cursor) : undefined,
 			),
 		)
 		.limit(op.limit ?? 100)
@@ -66,14 +73,15 @@ export async function getThreadMessages(
 	if (!noncached?.length) throw HttpError.NotFound('THREAD_NOT_FOUND');
 
 	if (!op.avoidCaching)
-		await cache.set<ModelMessage[]>(
+		await cache.set<PartialMessage[]>(
 			threadId,
 			(op.content === 'full'
 				? noncached.map((m) => ({
+						id: m.id,
 						role: m.role,
 						content: m.content,
 					}))
-				: noncached) as ModelMessage[],
+				: noncached) as PartialMessage[],
 			{
 				ex: 60 * 5,
 			},

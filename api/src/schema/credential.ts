@@ -3,6 +3,7 @@ import { sqlArray } from '@api/utils/sql';
 import { desc } from 'drizzle-orm';
 import { index } from 'drizzle-orm/gel-core';
 import {
+	boolean,
 	pgEnum,
 	pgTable,
 	timestamp,
@@ -15,22 +16,42 @@ export enum OauthProvider {
 	GOOGLE = 'google',
 	MICROSOFT = 'microsoft',
 	DROPBOX = 'dropbox',
+	NOTION = 'notion',
 }
 
 export enum OauthScope {
 	GMAIL = 'gmail',
 	DRIVE = 'drive',
+	CALENDAR = 'calendar',
+	OUTLOOK = 'outlook',
+	OUTLOOK_CALENDAR = 'outlook_calendar',
+	ONE_DRIVE = 'onedrive',
+	DROPBOX = 'dropbox',
 }
 
 export const scopesPerProvider: Record<OauthProvider, OauthScope[]> = {
-	[OauthProvider.GOOGLE]: [OauthScope.GMAIL, OauthScope.DRIVE],
-	[OauthProvider.MICROSOFT]: [],
-	[OauthProvider.DROPBOX]: [],
+	[OauthProvider.GOOGLE]: [
+		OauthScope.GMAIL,
+		OauthScope.DRIVE,
+		OauthScope.CALENDAR,
+	],
+	[OauthProvider.MICROSOFT]: [
+		OauthScope.OUTLOOK,
+		OauthScope.OUTLOOK_CALENDAR,
+		OauthScope.ONE_DRIVE,
+	],
+	[OauthProvider.DROPBOX]: [OauthScope.DROPBOX],
+	[OauthProvider.NOTION]: [],
 } as const;
 
 export const realOauthScopes: Record<OauthScope, string[]> = {
 	[OauthScope.GMAIL]: ['https://www.googleapis.com/auth/gmail.readonly'],
 	[OauthScope.DRIVE]: ['https://www.googleapis.com/auth/drive.readonly'],
+	[OauthScope.CALENDAR]: ['https://www.googleapis.com/auth/calendar.readonly'],
+	[OauthScope.OUTLOOK]: ['https://graph.microsoft.com/Mail.Read'],
+	[OauthScope.ONE_DRIVE]: ['https://graph.microsoft.com/Files.Read'],
+	[OauthScope.OUTLOOK_CALENDAR]: ['https://graph.microsoft.com/Calendars.Read'],
+	[OauthScope.DROPBOX]: ['files.metadata.read', 'files.content.read'],
 } as const;
 
 export const OauthProviderEnum = pgEnum(
@@ -50,6 +71,7 @@ export const credential = pgTable(
 		userId: uuid()
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
+		isGlobal: boolean().notNull().default(false),
 		provider: OauthProviderEnum().notNull(),
 		scope: OauthScopeEnum()
 			.array()

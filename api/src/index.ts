@@ -4,6 +4,7 @@ import { backofficeRouter } from '@api/backoffice';
 import { chatRouter } from '@api/chat';
 import { credentialRouter } from '@api/credential';
 import { cache, db, IS_PRODUCTION } from '@api/env';
+import { userRouter } from '@api/user';
 import cors from '@elysiajs/cors';
 import openapi, { fromTypes } from '@elysiajs/openapi';
 import serverTiming from '@elysiajs/server-timing';
@@ -59,6 +60,7 @@ const app = new Elysia({ prefix: '/api' })
 	.use(backofficeRouter)
 	.use(authRouter)
 	.use(adminRouter)
+	.use(userRouter)
 	.use(credentialRouter)
 	.use(chatRouter)
 	.get(

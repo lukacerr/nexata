@@ -9,13 +9,14 @@ export const filePermission = pgTable(
 		fileId: uuid()
 			.notNull()
 			.references(() => file.id, { onDelete: 'cascade' }),
-		userId: uuid().references(() => user.id, { onDelete: 'cascade' }),
+		userId: uuid().references(() => user.id),
 		email: varchar({ length: 320 }),
 		inferred: boolean().notNull().default(false),
+		isAdmin: boolean().notNull().default(false),
 	},
 	(table) => [
 		check(
-			'user_or_email_exists',
+			'file_permission_user_or_email_exists',
 			// biome-ignore lint/style/noNonNullAssertion: Drizzle miss-type
 			or(isNotNull(table.userId), isNotNull(table.email))!.getSQL(),
 		),

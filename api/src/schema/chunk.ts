@@ -1,5 +1,5 @@
-import { EMBEDDING_DIMENSIONS, EMBEDDING_SIZE } from '@api/env';
 import { file } from '@api/schema';
+import { EMBEDDING_DIMENSIONS, EMBEDDING_SIZE } from '@api/utils/embed';
 import {
 	index,
 	integer,
